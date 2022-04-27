@@ -1,0 +1,179 @@
+# Default values for super-helm-template.
+# This is a YAML-formatted file.
+# Declare variables to be passed into your templates.
+replicaCount: 1
+
+app:
+  serviceName: super-helm-template-template
+  serviceOwner: devops
+
+  profile: dev
+  containerPort: 8080
+  # sleep before shutdown in sec
+  sleepBeforeShutdown: 5
+
+  logging:
+    enabled: false
+    multilinePattern: ^\\[\\w\\]
+
+  apm:
+    enabled: false
+
+  livenessProbe:
+    httpGet:
+      path: /actuator/health/liveness
+      port: http
+    initialDelaySeconds: 60
+  readinessProbe:
+    httpGet:
+      path: /actuator/health/readiness
+      port: http
+    initialDelaySeconds: 10
+  #  periodSeconds: 10
+  #  timeoutSeconds: 1
+  #  successThreshold: 1
+  #  failureThreshold: 3
+
+  extraEnvs: []
+#   - name: DD_SERVICE_MAPPING
+#     value: redis:ohouse-hashtag-redis, mysql:ohouse-hashtag-mysql
+
+# -- service mesh configuration
+mesh:
+  enabled: false
+  config:
+    config.alpha.linkerd.io/proxy-wait-before-exit-seconds: "5"
+#    config.linkerd.io/skip-inbound-ports: 80, 443
+
+ecr:
+  enabled: true
+  accountID: "387471694114"
+  region: ap-northeast-2
+
+image:
+  repository: ohouse-template/spring-api
+  pullPolicy: Always
+  # Overrides the image tag whose default is the chart appVersion.
+  tag: ""
+  version: ""
+
+imagePullSecrets: []
+
+serviceAccount:
+  # Specifies whether a service account should be created
+  create: true
+  # Annotations to add to the service account
+  annotations: {}
+  # The name of the service account to use.
+  # If not set and create is true, a name is generated using the fullname template
+  name: ""
+
+podAnnotations: {}
+
+podSecurityContext: {}
+# fsGroup: 2000
+
+securityContext: {}
+  # capabilities:
+  #   drop:
+  #   - ALL
+  # readOnlyRootFilesystem: true
+  # runAsNonRoot: true
+# runAsUser: 1000
+
+deployment:
+  revisionHistoryLimit: 2
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 10%
+      maxUnavailable: 0%
+
+service:
+  type: ClusterIP
+  port: 80
+
+ingress:
+  enabled: false
+  className: ""
+  annotations: {}
+    # kubernetes.io/ingress.class: nginx
+  # kubernetes.io/tls-acme: "true"
+  hosts:
+    - host: chart-example.local
+      paths: []
+  tls: []
+  #  - secretName: chart-example-tls
+  #    hosts:
+  #      - chart-example.local
+
+resources: {}
+  # We usually recommend not to specify default resources and to leave this as a conscious
+  # choice for the user. This also increases chances charts run on environments with little
+  # resources, such as Minikube. If you do want to specify resources, uncomment the following
+  # lines, adjust them as necessary, and remove the curly braces after 'resources:'.
+  # limits:
+  #   cpu: 100m
+  #   memory: 128Mi
+  # requests:
+  #   cpu: 100m
+#   memory: 128Mi
+
+externalSecret:
+  database:
+    mysql:
+      enabled: false
+      write:
+        secretAlias: ""
+      read:
+        secretAlias: ""
+    mongo:
+      enabled: false
+      secretAlias: ""
+    cassandra:
+      enabled: false
+      secretAlias: ""
+  aws:
+    enabled: false
+    secretAlias: ""
+
+mapping:
+  enabled: false
+  version: v2
+  gatewayId: gateway-01
+  resolver: endpoint
+#  rules:
+#  - host: api.ohou.se
+#    prefix: /
+#    extraSpec: {}
+
+filterPolicy:
+  enabled: false
+  rules:
+#  - host: "api.ohou.se"
+#    path: "/"
+#    filters:
+#    - name: "open-api-jwt"
+#      onDeny: "break"
+#      onAllow: "continue"
+
+autoscaling:
+  enabled: false
+  minReplicas: 1
+  maxReplicas: 100
+  targetCPUUtilizationPercentage: 80
+  # targetMemoryUtilizationPercentage: 80
+
+## Define a disruption budget
+## ref: https://kubernetes.io/docs/concepts/workloads/pods/disruptions/
+##
+podDisruptionBudget:
+  enabled: false
+  minAvailable: 1
+  # maxUnavailable: 1
+
+nodeSelector: {}
+
+tolerations: []
+
+affinity: {}

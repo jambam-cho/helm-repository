@@ -1,0 +1,11 @@
+{{- if .Values.filterPolicy.enabled -}}
+apiVersion: ohou.se/v1
+kind: FilterPolicy
+metadata:
+  name: {{ include "super-helm-template.fullname" . }}
+  labels:
+    {{- include "super-helm-template.labels" . | nindent 4 }}
+spec:
+  rules:
+  {{- toYaml .Values.filterPolicy.rules | nindent 2}}
+{{- end -}}
