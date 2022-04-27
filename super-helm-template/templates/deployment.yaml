@@ -1,0 +1,169 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "api-server.fullname" . }}
+  labels:
+    {{- include "api-server.labels" . | nindent 4 }}
+spec:
+  {{- if not .Values.autoscaling.enabled }}
+  replicas: {{ .Values.replicaCount }}
+  {{- end }}
+  revisionHistoryLimit: {{ .Values.deployment.revisionHistoryLimit }}
+  strategy:
+    {{- toYaml .Values.deployment.strategy | nindent 4 }}
+  selector:
+    matchLabels:
+      {{- include "api-server.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      annotations:
+      {{- if .Values.app.logging.enabled }}
+        ad.datadoghq.com/{{ .Chart.Name }}.logs: |
+          [
+            {
+              "source": "ohouse-server",
+              "service": "{{ .Values.app.serviceName }}",
+              "log_processing_rules": [{
+                "type": "multi_line",
+                "name": "new_log_start_pattern",
+                "pattern": "{{- .Values.app.logging.multilinePattern }}"
+              }],
+              "tags": [
+                "role:api",
+                "servicename:{{ .Values.app.serviceName }}",
+                "serviceowner:{{ .Values.app.serviceOwner }}",
+                "service:{{ .Values.app.serviceName }}",
+                "env:{{ include "api-server.delivery.env" . }}",
+                "version:{{ default .Values.image.tag .Values.image.version }}"
+              ]
+            }
+          ]
+      {{- end }}
+      {{- if .Values.externalSecret.database.mysql.enabled }}
+        checksum/mysql-db-secret: {{ include (print $.Template.BasePath "/secrets/mysql-db-secret.yaml") . | sha256sum }}
+      {{- end }}
+      {{- if .Values.externalSecret.database.mongo.enabled }}
+        checksum/mongo-db-secret: {{ include (print $.Template.BasePath "/secrets/mongo-db-secret.yaml") . | sha256sum }}
+      {{- end }}
+      {{- if .Values.externalSecret.database.cassandra.enabled }}
+        checksum/cassandra-db-secret: {{ include (print $.Template.BasePath "/secrets/cassandra-db-secret.yaml") . | sha256sum }}
+      {{- end }}
+      {{- if .Values.externalSecret.aws.enabled }}
+        checksum/aws-secret: {{ include (print $.Template.BasePath "/secrets/aws-secret.yaml") . | sha256sum }}
+      {{- end }}
+      {{- if .Values.mesh.enabled }}
+        linkerd.io/inject: enabled
+        {{- with .Values.mesh.config }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+        ad.datadoghq.com/linkerd-proxy.check_names: '["linkerd"]'
+        ad.datadoghq.com/linkerd-proxy.init_configs: '[{}]'
+        ad.datadoghq.com/linkerd-proxy.instances: '[{"openmetrics_endpoint": "http://%%host%%:4191/metrics"}]'
+      {{- end }}
+      {{- with .Values.podAnnotations }}
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      labels:
+        {{- include "api-server.selectorLabels" . | nindent 8 }}
+        {{- include "api-server.ohouseLabels" . | nindent 8 }}
+    spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      serviceAccountName: {{ include "api-server.serviceAccountName" . }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      containers:
+        - name: {{ .Chart.Name }}
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
+          image: "{{ include "api-server.image-repository" . }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          env:
+            - name: APP_PROFILE
+              value: {{ .Values.app.profile }}
+            - name: OHOUSE_SERVICE_ID
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.labels['tags.ohou.se/service']
+            - name: OHOUSE_ENV
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.labels['tags.ohou.se/env']
+            - name: OHOUSE_VERSION
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.labels['tags.ohou.se/version']
+          {{- if .Values.app.apm.enabled }}
+            - name: JAVA_TOOL_OPTIONS
+              value: -javaagent:/app/dd-java-agent.jar
+            - name: DD_AGENT_HOST
+              valueFrom:
+                fieldRef:
+                  fieldPath: status.hostIP
+            - name: DD_SERVICE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.labels['tags.ohou.se/service']
+            - name: DD_ENV
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.labels['tags.ohou.se/env']
+            - name: DD_VERSION
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.labels['tags.ohou.se/version']
+            - name: DD_LOGS_INJECTION
+              value: {{ .Values.app.logging.enabled | quote }}
+          {{- end }}
+          {{- if .Values.app.extraEnvs }}
+            {{- toYaml .Values.app.extraEnvs | nindent 12 }}
+          {{- end }}
+          envFrom:
+          {{- if .Values.externalSecret.database.mysql.enabled }}
+            - secretRef:
+                name: {{ include "api-server.fullname" . }}-mysql-db-secret
+          {{- end }}
+          {{- if .Values.externalSecret.database.mysql.enabled }}
+            - secretRef:
+                name: {{ include "api-server.fullname" . }}-mysql-db-secret
+          {{- end }}
+          {{- if .Values.externalSecret.database.cassandra.enabled }}
+            - secretRef:
+                name: {{ include "api-server.fullname" . }}-cassandra-db-secret
+          {{- end }}
+          {{- if .Values.externalSecret.aws.enabled }}
+            - secretRef:
+                name: {{ include "api-server.fullname" . }}-aws-secret
+          {{- end }}
+          {{- if .Values.app.sleepBeforeShutdown }}
+          lifecycle:
+            preStop:
+              exec:
+                command:
+                  - sleep
+                  - {{ .Values.app.sleepBeforeShutdown | quote}}
+          {{- end }}
+          ports:
+            - name: http
+              containerPort: {{ .Values.app.containerPort }}
+              protocol: TCP
+          livenessProbe:
+            {{- toYaml .Values.app.livenessProbe | nindent 12 }}
+          readinessProbe:
+            {{- toYaml .Values.app.readinessProbe | nindent 12 }}
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}

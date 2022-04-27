@@ -1,0 +1,37 @@
+{{- if .Values.mapping.enabled -}}
+{{ $fullname := include "api-server.fullname" . }}
+{{ $version := .Values.mapping.version }}
+{{ $gatewayId := .Values.mapping.gatewayId }}
+{{ $resolver := .Values.mapping.resolver }}
+{{ $globalHost := .Values.mapping.host }}
+{{ $globalTimeout := .Values.mapping.timeout_ms }}
+{{ $globalExtraSpec := .Values.mapping.extraSpec }}
+{{ $targetSvc := .Values.mapping.targetSvc }}
+{{ $svcPort := .Values.service.port.http }}
+{{ $defaultSvc := printf "http://%s:%d" $fullname ($svcPort | int)}}
+{{ range $index, $rule :=.Values.mapping.rules }}
+---
+apiVersion: getambassador.io/{{ $version }}
+kind:  Mapping
+metadata:
+  name: {{ $fullname }}-mapping-{{ $index }}
+spec:
+  ambassador_id:
+  - {{ $gatewayId }}
+  resolver: {{ $resolver }}
+  {{- if eq $version "v2"}}
+  host: {{ default $globalHost $rule.host }}
+  {{- else }}
+  hostname: {{ default $globalHost $rule.host }}
+  {{- end }}
+  prefix: {{ $rule.prefix }}
+  timeout_ms: {{ default $globalTimeout $rule.timeout_ms }}
+  service: {{ default $defaultSvc $targetSvc }}
+{{- if $globalExtraSpec }}
+  {{- toYaml $globalExtraSpec | nindent 2}}
+{{- end }}
+{{- if $rule.extraSpec }}
+  {{- toYaml $rule.extraSpec | nindent 2}}
+{{- end }}
+{{ end }}
+{{- end -}}
