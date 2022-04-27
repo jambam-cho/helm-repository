@@ -1,14 +1,14 @@
 apiVersion: v1
 entries:
-  api-server:
+  super-helm-template:
   - apiVersion: v2
     appVersion: 1.0.0
-    created: "2022-04-27T13:54:10.122434+09:00"
+    created: "2022-04-27T13:59:11.63372+09:00"
     description: A Helm chart for Kubernetes
-    digest: f8d6bdfbf4177ccf66d7c27e6e17ea58532f08c5b78d959c93d2969d28a8d142
-    name: api-server
+    digest: 693a6385ec0004b8bb82f54e075e5bc5e117a723dff4806c74d431f45ea6abbe
+    name: super-helm-template
     type: application
     urls:
-    - api-server-0.1.0.tgz
+    - super-helm-template-0.1.0.tgz
     version: 0.1.0
-generated: "2022-04-27T13:54:10.118992+09:00"
+generated: "2022-04-27T13:59:11.632472+09:00"
